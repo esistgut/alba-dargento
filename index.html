@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>L'Alba d'Argento — un omaggio a Castlevania</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%23100818'/><circle cx='10' cy='6' r='4' fill='%23c03434'/></svg>" />
+  <style>
+    :root {
+      --ui-red: #c22e2e;
+      --ui-gold: #d8a832;
+      --ui-bone: #e8dcc0;
+    }
+    @font-face {
+      font-family: 'Press Start 2P';
+      src: url('fonts/PressStart2P-Regular.ttf') format('truetype');
+      font-display: swap;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; background: #000; overflow: hidden; }
+    body { font-family: 'Press Start 2P', 'Courier New', monospace; }
+
+    #app { position: relative; width: 100%; height: 100%; }
+    #game {
+      display: block; width: 100%; height: 100%;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+
+    .pixel-text {
+      color: var(--ui-bone);
+      text-shadow: 2px 2px 0 #000;
+      letter-spacing: 1px;
+      font-weight: bold;
+    }
+
+    /* ---------- HUD ---------- */
+    #hud {
+      position: absolute; top: 0; left: 0; right: 0;
+      padding: 14px 18px;
+      pointer-events: none;
+      display: none;
+    }
+    #hud.visible { display: block; }
+    .bar-label {
+      font-size: 10px; color: var(--ui-bone);
+      text-shadow: 1px 1px 0 #000; letter-spacing: 2px;
+      margin-bottom: 5px;
+    }
+    .bar-outer {
+      width: 220px; height: 14px;
+      border: 2px solid var(--ui-bone);
+      background: #1a0e0e;
+      box-shadow: 2px 2px 0 rgba(0,0,0,.6);
+    }
+    .bar-inner {
+      height: 100%; background: var(--ui-red);
+      background: linear-gradient(#e05050, #a01818);
+      transition: width .15s steps(8);
+    }
+    #boss-bar-wrap {
+      position: absolute; left: 50%; transform: translateX(-50%);
+      bottom: -99999px; /* repositioned by JS container */
+    }
+    #boss-hud {
+      position: absolute; bottom: 26px; left: 0; right: 0;
+      display: none; flex-direction: column; align-items: center;
+      pointer-events: none;
+    }
+    #boss-hud.visible { display: flex; }
+    #boss-hud .bar-outer { width: 320px; border-color: #b09aff; }
+    #boss-hud .bar-inner { background: linear-gradient(#b06cff, #5a1a9a); }
+    #boss-hud .bar-label { color: #cdbaff; }
+
+    /* ---------- Dialogue ---------- */
+    #dialogue {
+      position: absolute; left: 50%; bottom: 40px; transform: translateX(-50%);
+      width: min(680px, 92%);
+      background: rgba(10, 8, 20, .92);
+      border: 3px solid var(--ui-bone);
+      box-shadow: 0 0 0 3px #000, 4px 6px 0 rgba(0,0,0,.5);
+      padding: 14px 18px 12px;
+      display: none;
+    }
+    #dialogue.visible { display: block; }
+    #dlg-name {
+      color: var(--ui-gold); font-size: 12px;
+      letter-spacing: 2px; margin-bottom: 10px; text-shadow: 1px 1px 0 #000;
+    }
+    #dlg-text {
+      color: var(--ui-bone); font-size: 12px; line-height: 1.9;
+      min-height: 88px; white-space: pre-wrap;
+    }
+    #dlg-hint {
+      text-align: right; color: var(--ui-gold); font-size: 10px;
+      animation: blink 1s steps(2) infinite;
+    }
+    #interact-hint {
+      position: absolute; display: none;
+      color: var(--ui-gold); font-size: 10px;
+      text-shadow: 1px 1px 0 #000;
+      background: rgba(0,0,0,.55); border: 2px solid var(--ui-gold);
+      padding: 2px 8px;
+      left: 50%; bottom: 140px; transform: translateX(-50%);
+      pointer-events: none;
+    }
+    #interact-hint.visible { display: block; }
+
+    /* ---------- Full screens (title / gameover / victory) ---------- */
+    #screen {
+      position: absolute; inset: 0;
+      display: none; flex-direction: column;
+      align-items: center; justify-content: center;
+      background: radial-gradient(ellipse at 50% 30%, #1a0d26 0%, #05030a 70%);
+      text-align: center; padding: 20px;
+    }
+    #screen.visible { display: flex; }
+    #screen h1 {
+      font-size: clamp(22px, 4.5vw, 44px);
+      color: var(--ui-red);
+      text-shadow: 3px 3px 0 #000, 0 0 24px rgba(194, 46, 46, .5);
+      letter-spacing: 4px; margin-bottom: 14px;
+    }
+    #screen h2 {
+      font-size: clamp(10px, 1.4vw, 14px); color: var(--ui-gold);
+      text-shadow: 2px 2px 0 #000; letter-spacing: 3px; margin-bottom: 36px;
+    }
+    #screen p {
+      color: var(--ui-bone); font-size: clamp(10px, 1.2vw, 13px);
+      line-height: 2.1; max-width: 760px; text-shadow: 1px 1px 0 #000;
+      margin-bottom: 10px; white-space: pre-wrap;
+    }
+    #screen .prompt {
+      margin-top: 34px; color: var(--ui-gold); font-size: 12px;
+      animation: blink 1.2s steps(2) infinite;
+    }
+    #screen .controls {
+      margin-top: 30px; color: #8a8098; font-size: 10px; line-height: 2.2;
+    }
+    #level-list {
+      margin-top: 26px; display: none; flex-direction: column; gap: 10px;
+    }
+    #level-list.visible { display: flex; }
+    #level-list .lvl {
+      font-size: 11px; color: #8a8098; letter-spacing: 2px;
+      text-shadow: 1px 1px 0 #000;
+    }
+    #level-list .lvl.sel {
+      color: var(--ui-gold);
+      text-shadow: 1px 1px 0 #000, 0 0 12px rgba(216, 168, 50, .5);
+    }
+    #level-list .lvl.sel::before { content: '▶ '; }
+    #level-list .hint {
+      margin-top: 4px; font-size: 9px; color: #6a6278; letter-spacing: 1px;
+    }
+    #screen .controls b { color: var(--ui-bone); }
+
+    /* ---------- Level intro banner ---------- */
+    #level-banner {
+      position: absolute; top: 34%; left: 0; right: 0;
+      text-align: center; pointer-events: none;
+      opacity: 0; transition: opacity .5s;
+    }
+    #level-banner.visible { opacity: 1; }
+    #level-banner .stage { color: var(--ui-gold); font-size: 11px; letter-spacing: 4px; text-shadow: 2px 2px 0 #000; margin-bottom: 8px; }
+    #level-banner .name { color: var(--ui-bone); font-size: clamp(16px, 2.8vw, 26px); letter-spacing: 4px; text-shadow: 3px 3px 0 #000; }
+
+    #toast {
+      position: absolute; top: 20%; left: 0; right: 0; text-align: center;
+      color: var(--ui-gold); font-size: 13px;
+      text-shadow: 2px 2px 0 #000; pointer-events: none;
+      opacity: 0; transition: opacity .4s;
+    }
+    #toast.visible { opacity: 1; }
+
+    /* ---------- Fade overlay ---------- */
+    #fade {
+      position: absolute; inset: 0; background: #000;
+      opacity: 0; pointer-events: none; transition: opacity .45s;
+    }
+    #fade.dark { opacity: 1; }
+
+    @keyframes blink { 50% { opacity: 0; } }
+
+    /* ---------- Controlli touch ---------- */
+    #touch-ui {
+      position: absolute; inset: 0;
+      display: none; pointer-events: none;
+      z-index: 7; /* sopra le schermate: il fullscreen serve anche dal titolo */
+    }
+    #touch-ui.visible { display: block; }
+    .tc-cluster {
+      position: absolute;
+      bottom: calc(18px + env(safe-area-inset-bottom));
+      display: flex; gap: 14px; align-items: flex-end;
+      pointer-events: none;
+    }
+    .tc-left { left: calc(16px + env(safe-area-inset-left)); }
+    .tc-right { right: calc(16px + env(safe-area-inset-right)); }
+    .tc-btn {
+      pointer-events: auto;
+      width: 68px; height: 68px;
+      border-radius: 50%;
+      border: 2px solid rgba(232, 220, 192, .55);
+      background: rgba(20, 14, 34, .45);
+      color: var(--ui-bone);
+      font-family: inherit; font-size: 22px;
+      display: flex; align-items: center; justify-content: center;
+      touch-action: none;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none; -webkit-user-select: none;
+    }
+    .tc-btn.tc-small {
+      width: 52px; height: 52px; font-size: 15px;
+      align-self: flex-start; margin-bottom: 84px;
+      color: var(--ui-gold); border-color: rgba(216, 168, 50, .6);
+    }
+    .tc-btn.on {
+      background: rgba(194, 46, 46, .5);
+      border-color: var(--ui-bone);
+    }
+    #tc-fullscreen {
+      position: absolute;
+      top: calc(12px + env(safe-area-inset-top));
+      right: calc(12px + env(safe-area-inset-right));
+      width: 46px; height: 46px; font-size: 18px;
+      border-radius: 10px;
+    }
+    #dialogue, #screen { z-index: 6; }
+    #dialogue { cursor: pointer; }
+    #level-list .lvl { cursor: pointer; pointer-events: auto; }
+    #screen .prompt { cursor: pointer; }
+  </style>
+  <script type="module" crossorigin src="./assets/index-MAoTsfBo.js"></script>
+</head>
+<body>
+  <div id="app">
+    <canvas id="game"></canvas>
+
+    <div id="hud">
+      <div class="bar-label">VIKTOR</div>
+      <div class="bar-outer"><div id="hp-bar" class="bar-inner" style="width:100%"></div></div>
+    </div>
+
+    <div id="boss-hud">
+      <div class="bar-label" id="boss-name">CONTE MALAKAR</div>
+      <div class="bar-outer"><div id="boss-bar" class="bar-inner" style="width:100%"></div></div>
+    </div>
+
+    <div id="level-banner">
+      <div class="stage" id="banner-stage">LIVELLO 1</div>
+      <div class="name" id="banner-name">IL BOSCO DI VALDINERA</div>
+    </div>
+
+    <div id="toast"></div>
+
+    <div id="dialogue">
+      <div id="dlg-name"></div>
+      <div id="dlg-text"></div>
+      <div id="dlg-hint">INVIO ▼</div>
+    </div>
+    <div id="interact-hint">PREMI E PER PARLARE</div>
+
+    <div id="screen" class="visible">
+      <h1 id="screen-title">L'ALBA D'ARGENTO</h1>
+      <h2 id="screen-sub">UN OMAGGIO A CASTLEVANIA</h2>
+      <p id="screen-body"></p>
+      <div class="prompt" id="screen-prompt">PREMI INVIO PER INIZIARE</div>
+      <div id="level-list"></div>
+      <div class="controls" id="screen-controls">
+        <b>←/→</b> muoviti &nbsp;·&nbsp; <b>SPAZIO</b> salta &nbsp;·&nbsp; <b>X</b> spada<br/>
+        <b>E</b> parla con i sopravvissuti &nbsp;·&nbsp; <b>M</b> musica on/off
+      </div>
+    </div>
+
+    <div id="touch-ui">
+      <div class="tc-cluster tc-left">
+        <button class="tc-btn" data-code="ArrowLeft">◀</button>
+        <button class="tc-btn" data-code="ArrowRight">▶</button>
+      </div>
+      <div class="tc-cluster tc-right">
+        <button class="tc-btn tc-small" data-code="KeyE">E</button>
+        <button class="tc-btn" data-code="Space">▲</button>
+        <button class="tc-btn" data-code="KeyX">X</button>
+      </div>
+      <button id="tc-fullscreen" class="tc-btn">⛶</button>
+    </div>
+
+    <div id="fade"></div>
+  </div>
+</body>
+</html>
